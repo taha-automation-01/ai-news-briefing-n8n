@@ -1,0 +1,310 @@
+{
+  "name": "My workflow 2",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 8
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        160,
+        80
+      ],
+      "id": "0878b046-a50d-4f4c-b8e1-461b3625439c",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "url": "https://www.theverge.com/rss/index.xml",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        384,
+        80
+      ],
+      "id": "42dc4a07-1f44-4e63-84d3-4fdf7bef410a",
+      "name": "RSS Read"
+    },
+    {
+      "parameters": {
+        "maxItems": 3
+      },
+      "type": "n8n-nodes-base.limit",
+      "typeVersion": 1,
+      "position": [
+        832,
+        80
+      ],
+      "id": "09de870e-af9f-446f-9354-d0e7014dade6",
+      "name": "Limit"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "  https://openrouter.ai/api/v1/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "HTTP-Referer",
+              "value": "https://n8n.io"
+            },
+            {
+              "name": "X-Title",
+              "value": "n8n-news-briefing"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{\nJSON.stringify({\n  \"model\": \"openrouter/free\",\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"You are a concise AI news summarizer. For the given article, provide a 2-bullet point executive summary.\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"Title: \" + ($json.title || \"\") + \"\\n\\nContent: \" + ($json.contentSnippet || $json.content || \"\")\n    }\n  ],\n  \"temperature\": 0.3\n})\n}}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1056,
+        80
+      ],
+      "id": "b1fdd28e-8535-4247-8b80-9aeb4657078c",
+      "name": "HTTP Request",
+      "retryOnFail": true,
+      "waitBetweenTries": 1000,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "qpsKeBMmSg6Voeua",
+          "name": "Header Auth account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// دریافت تمام آیتم‌ها از نود HTTP Request و ترکیب خلاصه ۳ خبر\nconst items = $input.all();\n\nlet formattedDigest = \"🚀 **Daily AI Executive Briefing**\\n\\n\";\n\nitems.forEach((item, index) => {\n  // گرفتن اطلاعات خبر اصلی از نود Limit یا RSS\n  const originalNews = $('Limit').all()[index].json;\n  const title = originalNews.title || \"Latest AI Update\";\n  const link = originalNews.link || \"\";\n  \n  // استخراج متن خلاصه از پاسخ مدل\n  const summary = item.json.choices?.[0]?.message?.content || \"No summary available.\";\n  \n  formattedDigest += `📰 **${index + 1}. ${title}**\\n`;\n  formattedDigest += `${summary}\\n`;\n  if (link) {\n    formattedDigest += `🔗 [Read Full Story](${link})\\n`;\n  }\n  formattedDigest += \"\\n\" + \"—\".repeat(20) + \"\\n\\n\";\n});\n\nreturn [\n  {\n    json: {\n      digest: formattedDigest.trim(),\n      generatedAt: new Date().toISOString(),\n      articlesCount: items.length\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1280,
+        80
+      ],
+      "id": "609734cf-a4ae-42f0-8061-1fdc8795977d",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "authentication": "webhook",
+        "content": "={{ $json.digest }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 2,
+      "position": [
+        1504,
+        -16
+      ],
+      "id": "35b0af87-0f98-4560-8b9c-c8aeba6ed0ab",
+      "name": "Discord",
+      "webhookId": "5c9e8ec9-1a59-413f-8b76-7ed2039e2d7e",
+      "credentials": {
+        "discordWebhookApi": {
+          "id": "YbIYSHPlTVRWTEej",
+          "name": "Discord Webhook account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "dataTableId": {
+          "__rl": true,
+          "value": "iXGheQz3APwPaGG8",
+          "mode": "list",
+          "cachedResultName": "AI_News_Archive",
+          "cachedResultUrl": "/projects/9rCvxmcAq4DgFSXs/datatables/iXGheQz3APwPaGG8"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Digest": "=   {{ $json.digest }}\n",
+            "articles_count": "=   {{ $json.articlesCount }}\n"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Digest",
+              "displayName": "Digest",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "articles_count",
+              "displayName": "articles_count",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1504,
+        176
+      ],
+      "id": "ccda46a6-7df7-463c-8101-81f3d81bb024",
+      "name": "Insert row"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "3b441e05-8b9f-40a7-8664-31ee88a87639",
+              "leftValue": "=   {{ $json.isoDate }}\n",
+              "rightValue": "=   {{ $now.minus({ hours: 8 }) }}\n",
+              "operator": {
+                "type": "dateTime",
+                "operation": "after"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.3,
+      "position": [
+        608,
+        80
+      ],
+      "id": "a6672b3a-c713-49a7-8f69-50932e09326d",
+      "name": "Filter"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "RSS Read",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RSS Read": {
+      "main": [
+        [
+          {
+            "node": "Filter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Limit": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Insert row",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Discord",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Discord": {
+      "main": [
+        []
+      ]
+    },
+    "Insert row": {
+      "main": [
+        []
+      ]
+    },
+    "Filter": {
+      "main": [
+        [
+          {
+            "node": "Limit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "baa7550a-8a88-4817-a9ae-f57caa31f7dd",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "17173957ad7412c4d8ed42ba1c9bb145de1f365a14d26d8b9f035b87f92d400e"
+  },
+  "nodeGroups": [],
+  "id": "rUUF2mZfgDLuNEAL",
+  "tags": []
+}
