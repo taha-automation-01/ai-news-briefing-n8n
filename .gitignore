@@ -1,0 +1,13 @@
+# Sensitive files
+.env
+*.env
+credentials.json
+
+# Operating System files
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# Logs & temp files
+*.log
+npm-debug.log*
